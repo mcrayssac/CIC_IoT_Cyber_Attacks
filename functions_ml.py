@@ -1,8 +1,14 @@
 # Import libraries
 import os
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, confusion_matrix
+import joblib
+import seaborn as sns
 
 # Define variables
 DATASET_DIRECTORY = ".\Files\\"
@@ -102,7 +108,7 @@ def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, log_scale=False
 
     plt.bar(dataframe.index, dataframe.values)
     if log_scale:
-        plt.yscale('log')  # Utilisez une échelle logarithmique sur l'axe des y
+        plt.yscale('log')  # Utilisation une échelle logarithmique sur l'axe des y
     plt.xlabel(xLabel)
     if log_scale:
         plt.ylabel(f'{yLabel} (échelle logarithmique)')
@@ -112,3 +118,124 @@ def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, log_scale=False
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
+
+def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False):
+    """
+    Returns the number of false upper and false lower.
+    """
+    # Normalize in one dimension
+    if y_pred.ndim != 1:
+        tableau_1d = y_pred.flatten()
+        y_pred = np.ravel(tableau_1d)
+
+    # Mapping labels to index
+    labels = np.unique(np.concatenate([y_true, y_pred]))
+    label_to_index = {label: index for index, label in enumerate(labels)}
+    
+    fu_dict = {}
+    fl_dict = {}
+    i = 1
+
+    for label in tqdm(labels):
+        # Mapping labels to index
+        label_index = label_to_index[label]
+
+        # Create confusion matrix for the current label
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        
+        # Extract the false upper and false lower
+        fl = sum(cm[i:, label_index])
+        temp = cm[label_index, :]
+        fu = sum(temp[i:])
+        
+        fu_dict[label] = fu
+        fl_dict[label] = fl
+
+        i += 1
+
+    if confusionMatrix:
+        # Plot the confusion matrix as a heatmap
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        # Normalize the confusion matrix
+        cm = np.round(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], 2)
+        plt.figure(figsize=(30, 22))
+        sns.heatmap(cm, annot=True, fmt='.2f', cmap='Blues', annot_kws={"size": 16})
+        plt.xlabel('Predicted Labels')
+        plt.ylabel('True Labels')
+        plt.title('Confusion Matrix')
+        plt.show()
+
+    # Create false upper and false lower dataframes
+    data_fu = {
+        'Category': list(fu_dict.keys()),
+        'Count': list(fu_dict.values())
+    }
+    df_fu = pd.DataFrame(data_fu)
+    df_fu.sort_values(by=['Count'], inplace=True, ascending=False)
+    fu = df_fu['Count'].sum()
+
+    data_fl = {
+        'Category': list(fl_dict.keys()),
+        'Count': list(fl_dict.values())
+    }
+    df_fl = pd.DataFrame(data_fl)
+    df_fl.sort_values(by=['Count'], inplace=True, ascending=False)
+    fl = df_fl['Count'].sum()
+
+    return fu, fl
+
+def get_test_performance(model, X_test, y_test, confusionMatrix=False):
+    """
+    Returns the performance of a model.
+    """
+    y_pred = model.predict(X_test)
+
+    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix)
+
+    return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
+
+def build_model(model, X_train, y_train, X_test, y_test, performance_df, path_to_model, encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+    """
+    Build a model.
+    """
+    # Scale and encode the train set
+    X_train = scaler.fit_transform(X_train)
+    y_train_encoded = encoder.fit_transform(y_train)
+
+    # Fit the model
+    model.fit(X_train, y_train_encoded)
+    y_pred_train = model.predict(X_train)
+
+    # Scale and encode the test set
+    X_test = scaler.transform(X_test)
+    y_test_encoded = encoder.transform(y_test)
+
+    # Get the performance and save it
+    accuracy_train, recall_train, precision_train, f1_train = accuracy_score(y_train_encoded, y_pred_train), recall_score(y_train_encoded, y_pred_train, average='macro'), precision_score(y_train_encoded, y_pred_train, average='macro'), f1_score(y_train_encoded, y_pred_train, average='macro')
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, X_test, y_test_encoded, confusionMatrix=confusionMatrix)
+    performance_df.loc[model["Name"]] = [accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(y_test_encoded), fl/len(y_test_encoded), fu, fl, len(y_test_encoded)]
+
+    # Save model
+    joblib.dump(model, f"{path_to_model}model_{model}.joblib")
+
+    return performance_df, scaler, encoder
+
+def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary', path_to_datasets=path_to_datasets()):
+    """
+    Returns concatenated dataframe of all datasets.
+    """
+    i=1
+    for dataset in datasets:
+        if i==1:
+            df = read_csv_file(dataset, path_to_datasets=path_to_datasets)
+            X = df[X_columns]
+            y = df[y_column]
+            z = df[z_column]
+            i+=1
+        else:
+            df = read_csv_file(dataset, path_to_datasets=path_to_datasets)
+            X = pd.concat([X, df[X_columns]])
+            y = pd.concat([y, df[y_column]])
+            z = pd.concat([z, df[z_column]])
+
+    return X, y, z
