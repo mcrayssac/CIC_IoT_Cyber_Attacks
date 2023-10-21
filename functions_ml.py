@@ -9,6 +9,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, confusion_matrix
 import joblib
 import seaborn as sns
+from skopt import BayesSearchCV
+from sklearn.model_selection import StratifiedKFold
 
 # Define variables
 DATASET_DIRECTORY = ".\Files\\"
@@ -194,29 +196,62 @@ def get_test_performance(model, X_test, y_test, confusionMatrix=False):
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
 
-def build_model(model, X_train, y_train, X_test, y_test, performance_df, path_to_model, encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
     """
     Build a model.
     """
-    # Scale and encode the train set
-    X_train = scaler.fit_transform(X_train)
-    y_train_encoded = encoder.fit_transform(y_train)
+    # Define variables for performance
+    res_y_train = []
+    res_y_pred_train = []
 
-    # Fit the model
-    model.fit(X_train, y_train_encoded)
-    y_pred_train = model.predict(X_train)
+    res_X_test = []
+    res_y_test = []
 
-    # Scale and encode the test set
-    X_test = scaler.transform(X_test)
-    y_test_encoded = encoder.transform(y_test)
+    for train_set in tqdm(train_sets):
+        # Load data
+        df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
+        X_train = df[X_columns]
+        y_train = df[y_column]
+
+        # Scale and encode the train set
+        X_train = scaler.fit_transform(X_train)
+        y_train_encoded = encoder.fit_transform(y_train)
+
+        # Fit the model
+        model.fit(X_train, y_train_encoded)
+        y_pred_train = model.predict(X_train)
+
+        # Add y to lists
+        res_y_train += list(y_train_encoded)
+        res_y_pred_train += list(y_pred_train)
+
+        # Del variables
+        del df, X_train, y_train, y_train_encoded, y_pred_train
+
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        X_test = df[X_columns]
+        y_test = df[y_column]
+
+        # Scale and encode the test set
+        X_test = scaler.transform(X_test)
+        y_test_encoded = encoder.transform(y_test)
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test += list(y_test_encoded)
+
+        # Del variables
+        del df, X_test, y_test, y_test_encoded
 
     # Get the performance and save it
-    accuracy_train, recall_train, precision_train, f1_train = accuracy_score(y_train_encoded, y_pred_train), recall_score(y_train_encoded, y_pred_train, average='macro'), precision_score(y_train_encoded, y_pred_train, average='macro'), f1_score(y_train_encoded, y_pred_train, average='macro')
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, X_test, y_test_encoded, confusionMatrix=confusionMatrix)
-    performance_df.loc[model["Name"]] = [accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(y_test_encoded), fl/len(y_test_encoded), fu, fl, len(y_test_encoded)]
+    accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
+    performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
 
     # Save model
-    joblib.dump(model, f"{path_to_model}model_{model}.joblib")
+    joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
 
     return performance_df, scaler, encoder
 
@@ -239,3 +274,35 @@ def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary'
             z = pd.concat([z, df[z_column]])
 
     return X, y, z
+
+def optimize_hyperparameters(model, modelName, path_to_model, param_space, train_sets, encoder=LabelEncoder(), scaler=StandardScaler(), n_splits=5, n_iter=10):
+
+    # Scale the train set
+    X_train = scaler.transform(X_train)
+    y_train_encoded = encoder.fit_transform(y_train)
+
+    # Optimiser les hyperparamètres du modèle
+    # Utilisation de la validation croisée stratifiée
+    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+    # Initialisation de la recherche Bayesienne
+    bayes_search = BayesSearchCV(
+        model,
+        param_space,
+        n_iter=n_iter,  # Nombre d'itérations de la recherche Bayesienne
+        cv=cv,
+        n_jobs=-1,  # Utilisation de tous les cœurs disponibles
+        verbose=0,  # Affichage des détails de la recherche
+        random_state=42
+    )
+
+    # Lancer la recherche Bayesienne
+    bayes_search.fit(X, y)
+
+    # Retourner le modèle avec les meilleurs hyperparamètres
+    best_rf_model = bayes_search.best_estimator_
+
+    # Save model
+    joblib.dump(model, f"{path_to_model}tuning_model_{modelName}.joblib")
+
+    return best_rf_model
