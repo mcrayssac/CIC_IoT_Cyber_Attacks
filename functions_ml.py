@@ -275,11 +275,10 @@ def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary'
 
     return X, y, z
 
-def optimize_hyperparameters(model, modelName, path_to_model, param_space, train_sets, encoder=LabelEncoder(), scaler=StandardScaler(), n_splits=5, n_iter=10):
-
-    # Scale the train set
-    X_train = scaler.transform(X_train)
-    y_train_encoded = encoder.fit_transform(y_train)
+def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, param_space, train_sets, X_columns, y_column='label', encoder=LabelEncoder(), scaler=StandardScaler(), n_splits=5, n_iter=10):
+    """
+    Optimize hyperparameters of a model.
+    """
 
     # Optimiser les hyperparamètres du modèle
     # Utilisation de la validation croisée stratifiée
@@ -296,8 +295,21 @@ def optimize_hyperparameters(model, modelName, path_to_model, param_space, train
         random_state=42
     )
 
-    # Lancer la recherche Bayesienne
-    bayes_search.fit(X, y)
+    for train_set in tqdm(train_sets):
+        # Load data
+        df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
+        X_train = df[X_columns]
+        y_train = df[y_column]
+
+        # Scale and encode the train set
+        X_train = scaler.fit_transform(X_train)
+        y_train_encoded = encoder.fit_transform(y_train)
+
+        # Lancer la recherche Bayesienne
+        bayes_search.fit(X_train, y_train_encoded)
+
+        # Del variables
+        del df, X_train, y_train, y_train_encoded
 
     # Retourner le modèle avec les meilleurs hyperparamètres
     best_rf_model = bayes_search.best_estimator_
