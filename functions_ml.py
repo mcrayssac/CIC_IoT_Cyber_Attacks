@@ -48,7 +48,7 @@ def read_csv_file(file_name, path_to_datasets=path_to_datasets()):
 
 def refactor_dataframe(sets, new_dictionary, scaler, new_file_path, X_columns, y_column='label', drop_other=True):
     """
-    Refactor dataset with nez dictionnary.
+    Refactor dataset with new dictionnary.
     """
     i = 0
     res = pd.read_csv(DATASET_DIRECTORY + sets[0])
@@ -211,7 +211,9 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
         # Load data
         df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
         X_train = df[X_columns]
-        y_train = df[y_column]
+        y_train = df[z_column]
+        # print(y_train[:5])
+        # print(X_train[:5])
 
         # Scale and encode the train set
         X_train = scaler.fit_transform(X_train)
@@ -232,7 +234,7 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
         # Load data
         df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
         X_test = df[X_columns]
-        y_test = df[y_column]
+        y_test = df[z_column]
 
         # Scale and encode the test set
         X_test = scaler.transform(X_test)
@@ -318,3 +320,68 @@ def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, 
     joblib.dump(model, f"{path_to_model}tuning_model_{modelName}.joblib")
 
     return best_rf_model
+
+def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+    """
+    Test a model.
+    """
+    res_X_test = []
+    res_y_test = []
+
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        X_test = df[X_columns]
+        y_test = df[y_column]
+
+        # Scale and encode the test set
+        X_test = scaler.transform(X_test)
+        y_test_encoded = encoder.transform(y_test)
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test += list(y_test_encoded)
+
+        # Del variables
+        del df, X_test, y_test, y_test_encoded
+
+    # Get the performance and save it
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
+    performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
+
+    return performance_df, scaler, encoder
+
+def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', scaler=StandardScaler(), encoder=LabelEncoder()):
+    """
+    Get the prediction of a model.
+    """
+    res_X_test = []
+    res_y_test_encoded = []
+    res_z_test = []
+
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        X_test = df[X_columns]
+        y_test = df[y_column]
+        z_test = df[z_column]
+
+        # Scale and encode the test set
+        X_test = scaler.fit_transform(X_test)
+        y_test_encoded = encoder.fit_transform(y_test)
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test_encoded += list(y_test_encoded)
+        res_z_test += list(z_test)
+
+        # Del variables
+        del df, X_test, y_test, y_test_encoded, z_test
+    
+    res_y_pred = model.predict(res_X_test)
+
+    #TODO: Build Final Dataframe
+
+    return scaler, encoder, res_X_test, res_y_test_encoded, res_y_pred, res_z_test
+
+
