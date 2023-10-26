@@ -46,14 +46,13 @@ def read_csv_file(file_name, path_to_datasets=path_to_datasets()):
     """
     return pd.read_csv(path_to_datasets + file_name)
 
-def refactor_dataframe(sets, new_dictionary, scaler, new_file_path, X_columns, y_column='label', drop_other=True):
+def refactor_dataframe(sets, new_dictionary, new_file_path, y_column='label', drop_other=True):
     """
     Refactor dataset with new dictionnary.
     """
     i = 0
     res = pd.read_csv(DATASET_DIRECTORY + sets[0])
 
-    res[X_columns] = scaler.transform(res[X_columns])
     new_y = [new_dictionary[k] for k in res[y_column]]
     res['Binary'] = new_y
 
@@ -63,7 +62,6 @@ def refactor_dataframe(sets, new_dictionary, scaler, new_file_path, X_columns, y
     for set in tqdm(sets[1:]):
         d = pd.read_csv(DATASET_DIRECTORY + set)
 
-        d[X_columns] = scaler.transform(d[X_columns])
         new_y = [new_dictionary[k] for k in d[y_column]]
         d['Binary'] = new_y
 
@@ -196,7 +194,7 @@ def get_test_performance(model, X_test, y_test, confusionMatrix=False):
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
 
-def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
     """
     Build a model.
     """
@@ -204,14 +202,15 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
     res_y_train = []
     res_y_pred_train = []
 
-    res_X_test = []
-    res_y_test = []
-
     for train_set in tqdm(train_sets):
         # Load data
         df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
+
+        if filter_bool:
+            df = df[df[z_column] == filter_name]
+
         X_train = df[X_columns]
-        y_train = df[z_column]
+        y_train = df[y_column]
         # print(y_train[:5])
         # print(X_train[:5])
 
@@ -230,27 +229,11 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
         # Del variables
         del df, X_train, y_train, y_train_encoded, y_pred_train
 
-    for test_set in tqdm(test_sets):
-        # Load data
-        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
-        X_test = df[X_columns]
-        y_test = df[z_column]
-
-        # Scale and encode the test set
-        X_test = scaler.transform(X_test)
-        y_test_encoded = encoder.transform(y_test)
-
-        # Add y to lists
-        res_X_test += list(X_test)
-        res_y_test += list(y_test_encoded)
-
-        # Del variables
-        del df, X_test, y_test, y_test_encoded
-
     # Get the performance and save it
     accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
-    performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
+    
+    # Get the performance of the test set
+    performance_df, scaler, encoder = test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, z_column=z_column, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
 
     # Save model
     joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
@@ -321,7 +304,7 @@ def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, 
 
     return best_rf_model
 
-def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
     """
     Test a model.
     """
@@ -331,6 +314,10 @@ def test_model(model, model_name, test_sets, path_to_datasets, performance_df, a
     for test_set in tqdm(test_sets):
         # Load data
         df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+
+        if filter_bool:
+            df = df[df[z_column] == filter_name]
+
         X_test = df[X_columns]
         y_test = df[y_column]
 
@@ -351,7 +338,7 @@ def test_model(model, model_name, test_sets, path_to_datasets, performance_df, a
 
     return performance_df, scaler, encoder
 
-def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', scaler=StandardScaler(), encoder=LabelEncoder()):
+def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, scaler=StandardScaler(), encoder=LabelEncoder()):
     """
     Get the prediction of a model.
     """
@@ -362,13 +349,25 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
     for test_set in tqdm(test_sets):
         # Load data
         df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        # print(df.shape)
+
+        if filter_bool:
+            df = df[df[z_column] == filter_name]
+        # print(df.shape)
+
         X_test = df[X_columns]
+        # print(X_test[:5])
+        # print('------------------------------------')
         y_test = df[y_column]
         z_test = df[z_column]
 
         # Scale and encode the test set
-        X_test = scaler.fit_transform(X_test)
-        y_test_encoded = encoder.fit_transform(y_test)
+        if scale:
+            X_test = scaler.transform(X_test)
+        y_test_encoded = encoder.transform(y_test)
+        # print(X_test[:5])
+        # print(y_test[:5])
+        # print(z_test[:5])
 
         # Add y to lists
         res_X_test += list(X_test)
@@ -379,6 +378,10 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
         del df, X_test, y_test, y_test_encoded, z_test
     
     res_y_pred = model.predict(res_X_test)
+
+    # Unscale
+    if scale:
+        res_X_test = scaler.inverse_transform(res_X_test)
 
     #TODO: Build Final Dataframe
 
