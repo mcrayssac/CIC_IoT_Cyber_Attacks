@@ -215,7 +215,7 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
         # print(X_train[:5])
 
         # Scale and encode the train set
-        X_train = scaler.fit_transform(X_train)
+        X_train = scaler.transform(X_train)
         y_train_encoded = encoder.fit_transform(y_train)
 
         # Fit the model
@@ -233,12 +233,12 @@ def build_model(model, model_name, train_sets, test_sets, path_to_datasets, perf
     accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
     
     # Get the performance of the test set
-    performance_df, scaler, encoder = test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, z_column=z_column, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
+    performance_df, encoder = test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, z_column=z_column, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
 
     # Save model
     joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
 
-    return performance_df, scaler, encoder
+    return performance_df, encoder
 
 def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary', path_to_datasets=path_to_datasets()):
     """
@@ -287,7 +287,7 @@ def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, 
         y_train = df[y_column]
 
         # Scale and encode the train set
-        X_train = scaler.fit_transform(X_train)
+        X_train = scaler.transform(X_train)
         y_train_encoded = encoder.fit_transform(y_train)
 
         # Lancer la recherche Bayesienne
@@ -336,14 +336,14 @@ def test_model(model, model_name, test_sets, path_to_datasets, performance_df, a
     accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
     performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
 
-    return performance_df, scaler, encoder
+    return performance_df, encoder
 
-def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, scaler=StandardScaler(), encoder=LabelEncoder()):
+def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=StandardScaler(), encoder=LabelEncoder()):
     """
     Get the prediction of a model.
     """
     res_X_test = []
-    res_y_test_encoded = []
+    res_y_test = []
     res_z_test = []
 
     for test_set in tqdm(test_sets):
@@ -364,18 +364,21 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
         # Scale and encode the test set
         if scale:
             X_test = scaler.transform(X_test)
-        y_test_encoded = encoder.transform(y_test)
+        if encode:
+            y_test_encoded = encoder.transform(y_test)
+        else:
+            y_test_encoded = y_test
         # print(X_test[:5])
         # print(y_test[:5])
         # print(z_test[:5])
 
         # Add y to lists
         res_X_test += list(X_test)
-        res_y_test_encoded += list(y_test_encoded)
+        res_y_test += list(y_test_encoded)
         res_z_test += list(z_test)
 
         # Del variables
-        del df, X_test, y_test, y_test_encoded, z_test
+        del df, X_test, y_test, z_test
     
     res_y_pred = model.predict(res_X_test)
 
@@ -385,6 +388,6 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
 
     #TODO: Build Final Dataframe
 
-    return scaler, encoder, res_X_test, res_y_test_encoded, res_y_pred, res_z_test
+    return res_X_test, res_y_test, res_y_pred, res_z_test
 
 
