@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, confusion_matrix
 import joblib
@@ -26,6 +26,70 @@ def path_to_datasets():
     Returns the path to the datasets folder.
     """
     return DATASET_DIRECTORY
+
+def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns):
+    """
+    Returns importing or defining scaler
+    """
+    try:
+        scaler = joblib.load(path_to_scaler + 'scaler.joblib')
+    except:
+        scaler = MinMaxScaler()
+
+        for train_set in tqdm(train_sets):
+            scaler.fit(read_csv_file(train_set)[X_columns])
+
+        joblib.dump(scaler, path_to_scaler + 'scaler.joblib')
+    return scaler
+
+def get_or_define_encoder(path_to_encoder):
+    """
+    Returns importing or defining encoder
+    """
+    try:
+        encoder = joblib.load(path_to_encoder+'encoder.joblib')
+    except:
+        encoder = LabelEncoder()
+    return encoder
+
+def get_encoder(path_to_encoder, exception):
+    """
+    Returns importing encoder
+    """
+    try:
+        encoder = joblib.load(path_to_encoder+'encoder.joblib')
+    except:
+        raise Exception(exception)
+    return encoder
+
+def get_col_in_csv(csv_name, model_repo, col, filter_col, filter_name, filter=True, verbose=True):
+    """
+    Returns specific col in a csv file
+    """
+    df = read_csv_file(csv_name, model_repo)
+    if verbose:
+        print(f"Dataframe length: {len(df)}.")
+
+    if filter:
+        df = df[df[filter_col] == filter_name]
+        if verbose:
+            print(f"After reduction dataframe length: {len(df)}.")
+
+    df_col = df[col]
+    del df
+    return df_col
+
+def get_or_define_performance_df(model_path, performance_path):
+    """
+    Returns importing or defining performance dataframe
+    """
+    try:
+        # Load performance dataframe
+        performance = read_csv_file(performance_path, model_path)
+    except:
+        # Define performance dataframe
+        performance = pd.DataFrame(columns=['Model', 'Accuracy Training', 'Recall Training', 'Precision Training', 'F1 Training', 'Accuracy Testing', 'Recall Testing', 'Precision Testing', 'F1 Testing', 'FU_rate', 'FL_rate', 'FU', 'FL', 'Total rows'])
+    return performance
 
 def get_all_datasets_and_sort(path_to_datasets=path_to_datasets()):
     """
@@ -194,7 +258,7 @@ def get_test_performance(model, X_test, y_test, confusionMatrix=False):
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
 
-def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
     """
     Build a model.
     """
@@ -260,7 +324,7 @@ def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary'
 
     return X, y, z
 
-def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, param_space, train_sets, X_columns, y_column='label', encoder=LabelEncoder(), scaler=StandardScaler(), n_splits=5, n_iter=10):
+def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, param_space, train_sets, X_columns, y_column='label', encoder=LabelEncoder(), scaler=MinMaxScaler(), n_splits=5, n_iter=10):
     """
     Optimize hyperparameters of a model.
     """
@@ -304,7 +368,7 @@ def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, 
 
     return best_rf_model
 
-def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=StandardScaler(), confusionMatrix=False):
+def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
     """
     Test a model.
     """
@@ -338,7 +402,7 @@ def test_model(model, model_name, test_sets, path_to_datasets, performance_df, a
 
     return performance_df, encoder
 
-def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=StandardScaler(), encoder=LabelEncoder()):
+def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=MinMaxScaler(), encoder=LabelEncoder()):
     """
     Get the prediction of a model.
     """
@@ -357,6 +421,7 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
 
         X_test = df[X_columns]
         # print(X_test[:5])
+        # print(X_test.shape)
         # print('------------------------------------')
         y_test = df[y_column]
         z_test = df[z_column]
@@ -390,4 +455,73 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
 
     return res_X_test, res_y_test, res_y_pred, res_z_test
 
+def get_prediction_by_model_s(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=MinMaxScaler(), encoder=LabelEncoder()):
+    """
+    Get the prediction of a model.
+    """
+    res_X_test = []
+    res_y_test = []
+    res_z_test = []
 
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        # print(df.shape)
+
+        if filter_bool:
+            df = df[df[z_column] == filter_name]
+        print(df.shape)
+
+        X_test = df[X_columns]
+        print(X_test[:5])
+        print(X_test.shape)
+        print('------------------------------------')
+        y_test = df[y_column]
+        z_test = df[z_column]
+
+        # Scale and encode the test set
+        if scale:
+            X_test = scaler.transform(X_test)
+        if encode:
+            y_test_encoded = encoder.transform(y_test)
+        else:
+            y_test_encoded = y_test
+        # print(X_test[:5])
+        # print(y_test[:5])
+        # print(z_test[:5])
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test += list(y_test_encoded)
+        res_z_test += list(z_test)
+
+        # Del variables
+        del df, X_test, y_test, z_test
+    
+    res_y_pred = model.predict(res_X_test)
+
+    # Unscale
+    if scale:
+        res_X_test = scaler.inverse_transform(res_X_test)
+        
+    final_df = pd.DataFrame(res_X_test, columns=X_columns)
+
+    del res_X_test
+
+    return final_df, res_y_test, res_y_pred, res_z_test
+
+def add_column_by_another_to_datasets(path_to_datasets, datasets, column_name, based_column_name, dictionnary):
+    """
+    Add column based on another to all datasets
+    """
+    for set in tqdm(datasets):
+        # Read df
+        d = pd.read_csv(path_to_datasets + set)
+
+        # Inject the new col
+        new_y = [dictionnary[k] for k in d[based_column_name]]
+        d[column_name] = new_y
+
+        # Save and Delete
+        d.to_csv(path_to_datasets + datasets, index=False)        
+        del d
