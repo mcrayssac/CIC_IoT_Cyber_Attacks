@@ -455,6 +455,12 @@ def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_col
 
     return res_X_test, res_y_test, res_y_pred, res_z_test
 
+"""
+
+Test prediction simplified
+
+"""
+
 def get_prediction_by_model_s(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=MinMaxScaler(), encoder=LabelEncoder()):
     """
     Get the prediction of a model.
@@ -470,12 +476,12 @@ def get_prediction_by_model_s(model, test_sets, path_to_datasets, X_columns, y_c
 
         if filter_bool:
             df = df[df[z_column] == filter_name]
-        print(df.shape)
+        # print(df.shape)
 
         X_test = df[X_columns]
-        print(X_test[:5])
-        print(X_test.shape)
-        print('------------------------------------')
+        # print(X_test[:5])
+        # print(X_test.shape)
+        # print('------------------------------------')
         y_test = df[y_column]
         z_test = df[z_column]
 
@@ -510,6 +516,12 @@ def get_prediction_by_model_s(model, test_sets, path_to_datasets, X_columns, y_c
 
     return final_df, res_y_test, res_y_pred, res_z_test
 
+"""
+
+Test add cols
+
+"""
+
 def add_column_by_another_to_datasets(path_to_datasets, datasets, column_name, based_column_name, dictionnary):
     """
     Add column based on another to all datasets
@@ -523,5 +535,155 @@ def add_column_by_another_to_datasets(path_to_datasets, datasets, column_name, b
         d[column_name] = new_y
 
         # Save and Delete
-        d.to_csv(path_to_datasets + datasets, index=False)        
+        d.to_csv(path_to_datasets + set, index=False)        
         del d
+
+
+
+"""
+
+Test multi-filtered building model
+
+"""
+
+def multi_filter_df(df, filter_cols, filter_name):
+    """
+    Multi-filter dataframe
+    """
+    for i in range(0, len(filter_cols)):
+        if filter_name[i]["type"] == "=":
+            # print(f'Equal : {filter_cols[i]} & {filter_name[i]["name"]}')
+            df = df[df[filter_cols[i]] == filter_name[i]["name"]]
+        elif filter_name[i]["type"] == "!":
+            # print(f'Not equal : {filter_cols[i]} & {filter_name[i]["name"]}')
+            df = df[df[filter_cols[i]] != filter_name[i]["name"]]
+        else:
+            raise ("Dictionnary not built well ({'name': <elt>, 'type': '=' or '!'})")
+    return df
+
+def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
+    """
+    Test a model.
+    """
+    res_X_test = []
+    res_y_test = []
+
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+
+        if filter_bool:
+            df = multi_filter_df(df, filter_cols, filter_name)
+
+        X_test = df[X_columns]
+        y_test = df[y_column]
+
+        # Scale and encode the test set
+        X_test = scaler.transform(X_test)
+        y_test_encoded = encoder.transform(y_test)
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test += list(y_test_encoded)
+
+        # Del variables
+        del df, X_test, y_test, y_test_encoded
+
+    # Get the performance and save it
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
+    performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
+
+    return performance_df, encoder
+
+def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
+    """
+    Build a model.
+    """
+    # Define variables for performance
+    res_y_train = []
+    res_y_pred_train = []
+
+    for train_set in tqdm(train_sets):
+        # Load data
+        df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
+        # print(df.head(20))
+
+        if filter_bool:
+            df = multi_filter_df(df, filter_cols, filter_name)
+        # print(df.head(20))
+
+        X_train = df[X_columns]
+        y_train = df[y_column]
+        # print(y_train[:5])
+        # print(X_train[:5])
+
+        # Scale and encode the train set
+        X_train = scaler.transform(X_train)
+        y_train_encoded = encoder.fit_transform(y_train)
+
+        # Fit the model
+        model.fit(X_train, y_train_encoded)
+        y_pred_train = model.predict(X_train)
+
+        # Add y to lists
+        res_y_train += list(y_train_encoded)
+        res_y_pred_train += list(y_pred_train)
+
+        # Del variables
+        del df, X_train, y_train, y_train_encoded, y_pred_train
+
+    # Get the performance and save it
+    accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
+    
+    # Get the performance of the test set
+    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
+
+    # Save model
+    joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
+
+    return performance_df, encoder
+
+def get_prediction_by_model_multifiltered(model, test_sets, path_to_datasets, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], scale=True, encode=True, scaler=MinMaxScaler(), encoder=LabelEncoder()):
+    """
+    Get the prediction of a model.
+    """
+    res_X_test = []
+    res_y_test = []
+
+    for test_set in tqdm(test_sets):
+        # Load data
+        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
+        # print(df.shape)
+
+        if filter_bool:
+            df = multi_filter_df(df, filter_cols, filter_name)
+        # print(df.shape)
+
+        X_test = df[X_columns]
+        # print(X_test[:5])
+        y_test = df[y_column]
+
+        # Scale and encode the test set
+        if scale:
+            X_test = scaler.transform(X_test)
+        if encode:
+            y_test_encoded = encoder.transform(y_test)
+        else:
+            y_test_encoded = y_test
+        # print(X_test[:5])
+        # print(y_test[:5])
+
+        # Add y to lists
+        res_X_test += list(X_test)
+        res_y_test += list(y_test_encoded)
+
+        # Del variables
+        del df, X_test, y_test
+    
+    res_y_pred = model.predict(res_X_test)
+
+    # Unscale
+    if scale:
+        res_X_test = scaler.inverse_transform(res_X_test)
+
+    return res_X_test, res_y_test, res_y_pred
