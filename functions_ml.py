@@ -687,3 +687,93 @@ def get_prediction_by_model_multifiltered(model, test_sets, path_to_datasets, X_
         res_X_test = scaler.inverse_transform(res_X_test)
 
     return res_X_test, res_y_test, res_y_pred
+
+def calculate_and_plot_feature_importance(models, train_sets, X_columns, y_column, feature_names, path_to_datasets, filter_cols=[], filter_bool=False, filter_name=[], fitted_models=False, all_features=False, scaler=MinMaxScaler(), encoder=LabelEncoder()):
+    """
+    Calculate and plot average feature importance from multiple tree-based models.
+
+    Parameters:
+    - X: Features as a DataFrame or 2D array.
+    - y: Labels as a 1D array or Series.
+    - feature_names: List of feature names (optional).
+    - model_names: List of model names (optional).
+
+    Returns:
+    - A DataFrame with feature names and average importance.
+    - A bar plot showing the average feature importance.
+    """
+
+    # Dictionary to store feature importance for each model
+    feature_importance = {model_name["Name"]: None for model_name in models}
+
+    # Fit models and store feature importance
+    for model in tqdm(models):
+        if not fitted_models:
+            for train_set in tqdm(train_sets):
+                # Load data
+                df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
+
+                if filter_bool:
+                    df = multi_filter_df(df, filter_cols, filter_name)
+
+                X_train = df[X_columns]
+                y_train = df[y_column]
+
+                # Scale and encode the train set
+                X_train = scaler.transform(X_train)
+                y_train_encoded = encoder.fit_transform(y_train)
+
+                # Fit the model
+                model['Model'].fit(X_train, y_train_encoded)
+
+                # Del variables
+                del df, X_train, y_train, y_train_encoded
+
+        feature_importance[model['Name']] = model['Model'].feature_importances_/np.sum(model['Model'].feature_importances_)
+
+    # Calculate average feature importance
+    average_importance = np.mean(list(feature_importance.values()), axis=0)
+
+    # Create a DataFrame with feature names and average importance
+    # print(len(feature_names), len(average_importance))
+    average_importance_df = pd.DataFrame({'Feature': feature_names, 'Average Importance': average_importance})
+    if not all_features:
+        average_importance_df = average_importance_df[average_importance_df['Average Importance'] > 0.01]
+    average_importance_df = average_importance_df.sort_values(by=['Average Importance'], ascending=False)
+
+    # Plot feature importance
+    plt.figure(figsize=(20, 5))
+    plt.bar(average_importance_df['Feature'], average_importance_df['Average Importance'])
+    plt.ylabel('Average Importance')
+    plt.xlabel('Feature Name')
+    plt.xticks(rotation=90)
+    plt.title('Average Feature Importance from Models')
+    plt.show()
+
+    return average_importance_df
+
+def plot_feature_importance(df):
+    plt.figure(figsize=(20, 5))
+    plt.bar(df['Feature'], df['Average Importance'])
+    plt.ylabel('Average Importance')
+    plt.xlabel('Feature Name')
+    plt.xticks(rotation=90)
+    plt.title('Average Feature Importance from Models')
+    plt.show()
+
+def model_dict_refactor_with_load_model(simpleModelsDef, model_path):
+    os_dir = [k for k in os.listdir(model_path) if k.endswith('.joblib') and k.startswith('model_')]
+
+    for i in range(0, len(simpleModelsDef)):
+        if not simpleModelsDef[i]['Name'] == 'MLP':
+            temp_path = [s for s in os_dir if simpleModelsDef[i]['Name'] in s]
+            if len(temp_path) == 1:
+                # print(model_path + temp_path[0])
+                simpleModelsDef[i]['Model'] = joblib.load(model_path + temp_path[0])
+            else:
+                print(simpleModelsDef[i]['Name'], temp_path)
+                raise Exception('More than one file in folder founded')
+        else :
+            simpleModelsDef.pop(i)
+    
+    return simpleModelsDef
