@@ -768,11 +768,12 @@ def model_dict_refactor_with_load_model(simpleModelsDef, model_path):
         if not simpleModelsDef[i]['Name'] == 'MLP':
             temp_path = [s for s in os_dir if simpleModelsDef[i]['Name'] in s]
             if len(temp_path) == 1:
-                # print(model_path + temp_path[0])
+                print(model_path + temp_path[0])
                 simpleModelsDef[i]['Model'] = joblib.load(model_path + temp_path[0])
             else:
                 print(simpleModelsDef[i]['Name'], temp_path)
-                raise Exception('More than one file in folder founded')
+                print('More than one file in folder founded')
+                simpleModelsDef[i]['Model'] = joblib.load(model_path + temp_path[0])
         else :
             simpleModelsDef.pop(i)
     
