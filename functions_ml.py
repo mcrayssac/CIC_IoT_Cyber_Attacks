@@ -27,7 +27,7 @@ def path_to_datasets():
     """
     return DATASET_DIRECTORY
 
-def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns):
+def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns, file_path=path_to_datasets()):
     """
     Returns importing or defining scaler
     """
@@ -37,7 +37,7 @@ def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns):
         scaler = MinMaxScaler()
 
         for train_set in tqdm(train_sets):
-            scaler.fit(read_csv_file(train_set)[X_columns])
+            scaler.fit(read_csv_file(train_set, file_path)[X_columns])
 
         joblib.dump(scaler, path_to_scaler + 'scaler.joblib')
     return scaler
@@ -183,7 +183,7 @@ def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, log_scale=False
     plt.tight_layout()
     plt.show()
 
-def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False):
+def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, labeled=False, encoder=LabelEncoder()):
     """
     Returns the number of false upper and false lower.
     """
@@ -193,7 +193,12 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False)
         y_pred = np.ravel(tableau_1d)
 
     # Mapping labels to index
-    labels = np.unique(np.concatenate([y_true, y_pred]))
+    if labeled:
+        y_labeled_true = encoder.inverse_transform(y_true)
+        y_labeled_pred = encoder.inverse_transform(y_pred)
+        labels = np.unique(np.concatenate([y_labeled_true, y_labeled_pred]))
+    else:
+        labels = np.unique(np.concatenate([y_true, y_pred]))
     label_to_index = {label: index for index, label in enumerate(labels)}
     
     fu_dict = {}
@@ -248,13 +253,13 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False)
 
     return fu, fl
 
-def get_test_performance(model, X_test, y_test, confusionMatrix=False):
+def get_test_performance(model, X_test, y_test, confusionMatrix=False, encoder=LabelEncoder(), labeled=False):
     """
     Returns the performance of a model.
     """
     y_pred = model.predict(X_test)
 
-    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix)
+    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix, labeled=labeled, encoder=encoder)
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
 
@@ -561,7 +566,7 @@ def multi_filter_df(df, filter_cols, filter_name):
             raise ("Dictionnary not built well ({'name': <elt>, 'type': '=' or '!'})")
     return df
 
-def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
+def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, labeled=False):
     """
     Test a model.
     """
@@ -590,12 +595,12 @@ def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, per
         del df, X_test, y_test, y_test_encoded
 
     # Get the performance and save it
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix, labeled=labeled, encoder=encoder)
     performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
 
     return performance_df, encoder
 
-def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
+def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, labeled=False):
     """
     Build a model.
     """
@@ -636,7 +641,7 @@ def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_
     accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
     
     # Get the performance of the test set
-    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
+    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix, labeled=labeled)
 
     # Save model
     joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
