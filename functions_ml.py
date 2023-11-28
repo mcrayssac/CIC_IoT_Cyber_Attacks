@@ -164,7 +164,7 @@ def count_label(datasets, file_path=path_to_datasets()):
 
     return class_counts_combined.groupby(class_counts_combined.index).sum()
 
-def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, log_scale=False):
+def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, save_directory, log_scale=False):
     """
     Plot bar chart of a dataframe.
     """
@@ -178,9 +178,138 @@ def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, log_scale=False
         plt.ylabel(f'{yLabel} (échelle logarithmique)')
     else:
         plt.ylabel(f'{yLabel} (échelle non logarithmique)')
+
+    # Add value to each bar of the bar chart
+    for index, value in enumerate(dataframe.values):
+        plt.text(index, value, value, ha='center', va='bottom', fontsize=8)
+
     plt.title(title)
     plt.xticks(rotation=90)
     plt.tight_layout()
+    plt.savefig(save_directory + title + '.png')
+    plt.show()
+
+def plot_pie_chart(dataframe, title, figX, figY, save_directory):
+    """
+    Plot pie chart of a dataframe.
+    """
+    plt.figure(figsize=(figX, figY))
+    plt.title(title)
+    plt.pie(dataframe.values, labels=dataframe.index, autopct='%1.1f%%', startangle=90, explode=[0.1]*len(dataframe))
+    plt.tight_layout()
+    plt.savefig(save_directory + title + '.png')
+    plt.show()
+
+def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.95):
+    """
+    Select features by importance.
+    """
+    # Trie les indices des fonctionnalités par ordre décroissant d'importance
+    sorted_feature_indices = np.argsort(X)[::-1] # argsort renvoie les indices qui trieraient le tableau et [::-1] inverse l'ordre
+
+    # Calcule l'importance cumulée
+    cumulative_importance = np.cumsum(X[sorted_feature_indices]) # cumsum calcule la somme cumulée et [sorted_feature_indices] réordonne les valeurs dans le même ordre que les indices
+
+    # Plot l'importance cumulée
+    plt.figure(figsize=(10, 6))
+    plt.plot(cumulative_importance)
+    plt.title('Importance cumulée des fonctionnalités')
+    plt.xlabel('Nombre de fonctionnalités')
+    plt.ylabel('Importance cumulée')
+    plt.grid()
+    plt.axhline(y=threshold_percentage, color='r', linestyle='-')
+    plt.text(0, threshold_percentage + 0.01, f'Seuil de {threshold_percentage * 100}%', color='red', fontsize=10)
+    plt.savefig(save_repo+'Importance cumulée des fonctionnalités.png')
+    plt.show()
+
+    # Sélectionne les indices des fonctionnalités à conserver
+    selected_feature_indices = sorted_feature_indices[cumulative_importance <= threshold_percentage]
+
+    # Sélectionne les colonnes correspondantes dans X
+    X_selected = [Labels[i] for i in selected_feature_indices.tolist()]
+
+    return X_selected
+
+def plot_correlation_matrix(df, path_to_save, title, figsize=(20, 10)):
+    """
+    Plot correlation matrix of a dataframe.
+    """
+    corr = df.corr()
+    plt.figure(figsize=figsize)
+    plt.title(title)
+    sns.heatmap(corr, annot=True, fmt='.2f', linewidths=1, cmap='Blues')
+    plt.savefig(path_to_save)
+    plt.show()
+
+def plot_pairplot(df, path_to_save, title, figsize=(20, 10)):
+    """
+    Plot pairplot of a dataframe.
+    """
+    plt.figure(figsize=figsize)
+    sns.pairplot(df)
+    plt.title(title)
+    plt.savefig(path_to_save)
+    plt.show()
+
+def plot_boxplot(df, path_to_save, title, figsize=(20, 10), log_scale=True):
+    """
+    Plot boxplot of a dataframe.
+    """
+    plt.figure(figsize=figsize)
+    sns.boxplot(data=df)
+    plt.title(title)
+    if log_scale:
+        plt.yscale('log')
+    plt.xticks(rotation=90)
+    plt.savefig(path_to_save)
+    plt.show()
+
+def plot_kde_plot(df, X_columns, path_to_save):
+    """
+    Plot kde plot of a dataframe.
+    """
+    fig,ax=plt.subplots(1, 3, figsize = (12, 4))
+    plt.subplot(131)
+    sns.kdeplot(x = df[X_columns[0]], color = "lightblue",hue="label",data= df)
+    ax[0].grid('on')
+
+    plt.subplot(132)
+    sns.kdeplot(x = df[X_columns[1]], color = "lightblue",hue="label",data= df)
+    ax[1].grid('on')
+
+    plt.subplot(133)
+    sns.kdeplot(x = df[X_columns[2]], color = "lightblue",hue="label",data= df)
+    ax[2].grid('on')
+    plt.tight_layout()
+    plt.savefig(path_to_save)
+    plt.show()
+
+def plot_lineplot(df, X_columns, path_to_save, figsize=(20, 10)):
+    """
+    Plot lineplot of a dataframe.
+    """
+    plt.figure(figsize = figsize)
+    sns.lineplot(data=df,x=df.index, y=df[X_columns[0]],hue='label')
+    plt.title(X_columns[0], fontsize = 15)
+    plt.grid()
+    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
+    plt.savefig(path_to_save + f'_{X_columns[0]}.png')
+    plt.show()
+
+    plt.figure(figsize = figsize)
+    sns.lineplot(data=df,x=df.index, y=df[X_columns[1]],hue='label')
+    plt.title(X_columns[1], fontsize = 15)
+    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
+    plt.grid()
+    plt.savefig(path_to_save + f'_{X_columns[1]}.png')
+    plt.show()
+
+    plt.figure(figsize = figsize)
+    sns.lineplot(data=df,x=df.index, y=df[X_columns[2]],hue='label')
+    plt.title(X_columns[2], fontsize = 15)
+    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
+    plt.grid()
+    plt.savefig(path_to_save + f'_{X_columns[2]}.png')
     plt.show()
 
 def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, labeled=False, encoder=LabelEncoder()):
@@ -693,7 +822,7 @@ def get_prediction_by_model_multifiltered(model, test_sets, path_to_datasets, X_
 
     return res_X_test, res_y_test, res_y_pred
 
-def calculate_and_plot_feature_importance(models, train_sets, X_columns, y_column, feature_names, path_to_datasets, filter_cols=[], filter_bool=False, filter_name=[], fitted_models=False, all_features=False, scaler=MinMaxScaler(), encoder=LabelEncoder()):
+def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_features=False):
     """
     Calculate and plot average feature importance from multiple tree-based models.
 
@@ -713,28 +842,10 @@ def calculate_and_plot_feature_importance(models, train_sets, X_columns, y_colum
 
     # Fit models and store feature importance
     for model in tqdm(models):
-        if not fitted_models:
-            for train_set in tqdm(train_sets):
-                # Load data
-                df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
-
-                if filter_bool:
-                    df = multi_filter_df(df, filter_cols, filter_name)
-
-                X_train = df[X_columns]
-                y_train = df[y_column]
-
-                # Scale and encode the train set
-                X_train = scaler.transform(X_train)
-                y_train_encoded = encoder.fit_transform(y_train)
-
-                # Fit the model
-                model['Model'].fit(X_train, y_train_encoded)
-
-                # Del variables
-                del df, X_train, y_train, y_train_encoded
-
-        feature_importance[model['Name']] = model['Model'].feature_importances_/np.sum(model['Model'].feature_importances_)
+        try:
+            feature_importance[model['Name']] = model['Model'].feature_importances_/np.sum(model['Model'].feature_importances_)
+        except:
+            raise Exception(f"Model {model['Name']} is not fitted.")
 
     # Calculate average feature importance
     average_importance = np.mean(list(feature_importance.values()), axis=0)
@@ -753,6 +864,7 @@ def calculate_and_plot_feature_importance(models, train_sets, X_columns, y_colum
     plt.xlabel('Feature Name')
     plt.xticks(rotation=90)
     plt.title('Average Feature Importance from Models')
+    plt.savefig(save_repo + 'Average Feature Importance from Models.png')
     plt.show()
 
     return average_importance_df
