@@ -12,6 +12,15 @@ import seaborn as sns
 from skopt import BayesSearchCV
 from sklearn.model_selection import StratifiedKFold
 
+FONT_SIZE = 16
+plt.rc('font', size=FONT_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=FONT_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=FONT_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=FONT_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=FONT_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=FONT_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=FONT_SIZE) 
+
 # Define variables
 DATASET_DIRECTORY = ".\Files\\"
 
@@ -172,20 +181,21 @@ def plot_bar_chart(dataframe, title, xLabel, yLabel, figX, figY, save_directory,
 
     plt.bar(dataframe.index, dataframe.values)
     if log_scale:
-        plt.yscale('log')  # Utilisation une échelle logarithmique sur l'axe des y
+        plt.yscale('log') 
     plt.xlabel(xLabel)
     if log_scale:
-        plt.ylabel(f'{yLabel} (échelle logarithmique)')
+        plt.ylabel(f'{yLabel} (logarithmic scale)')
     else:
-        plt.ylabel(f'{yLabel} (échelle non logarithmique)')
+        plt.ylabel(f'{yLabel} (non-logarithmic scale)')
 
     # Add value to each bar of the bar chart
     for index, value in enumerate(dataframe.values):
-        plt.text(index, value, value, ha='center', va='bottom', fontsize=8)
+        plt.text(index, value, value, ha='center', va='bottom')
 
     plt.title(title)
     plt.xticks(rotation=90)
     plt.tight_layout()
+    plt.grid()
     plt.savefig(save_directory + title + '.png')
     plt.show()
 
@@ -197,6 +207,7 @@ def plot_pie_chart(dataframe, title, figX, figY, save_directory):
     plt.title(title)
     plt.pie(dataframe.values, labels=dataframe.index, autopct='%1.1f%%', startangle=90, explode=[0.1]*len(dataframe))
     plt.tight_layout()
+    plt.grid()
     plt.savefig(save_directory + title + '.png')
     plt.show()
 
@@ -213,13 +224,13 @@ def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.9
     # Plot l'importance cumulée
     plt.figure(figsize=(10, 6))
     plt.plot(cumulative_importance)
-    plt.title('Importance cumulée des fonctionnalités')
-    plt.xlabel('Nombre de fonctionnalités')
-    plt.ylabel('Importance cumulée')
+    plt.title('Cumulative feature importance')
+    plt.xlabel('Number of features')
+    plt.ylabel('Cumulative importance')
     plt.grid()
     plt.axhline(y=threshold_percentage, color='r', linestyle='-')
-    plt.text(0, threshold_percentage + 0.01, f'Seuil de {threshold_percentage * 100}%', color='red', fontsize=10)
-    plt.savefig(save_repo+'Importance cumulée des fonctionnalités.png')
+    plt.text(0, threshold_percentage + 0.01, f'Threshold of {threshold_percentage * 100}%', color='red')
+    plt.savefig(save_repo+'Cumulative feature importance.png')
     plt.show()
 
     # Sélectionne les indices des fonctionnalités à conserver
@@ -230,24 +241,31 @@ def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.9
 
     return X_selected
 
-def plot_correlation_matrix(df, path_to_save, title, figsize=(20, 10)):
+def plot_correlation_matrix(df, path_to_save, title, figsize=(20, 10), lower=False, labels=True):
     """
     Plot correlation matrix of a dataframe.
     """
     corr = df.corr()
+    if lower:
+        mask = np.triu(np.ones_like(corr, dtype=bool))
+        corr = corr.mask(mask)
     plt.figure(figsize=figsize)
     plt.title(title)
-    sns.heatmap(corr, annot=True, fmt='.2f', linewidths=1, cmap='Blues')
+    if labels:
+        sns.heatmap(corr, annot=True, fmt='.2f', linewidths=1, cmap='Blues')
+    else:
+        sns.heatmap(corr, annot=False, fmt='.2f', linewidths=1, cmap='Blues')
     plt.savefig(path_to_save)
     plt.show()
 
-def plot_pairplot(df, path_to_save, title, figsize=(20, 10)):
+def plot_pairplot(df, path_to_save, hue, title, figsize=(20, 10)):
     """
     Plot pairplot of a dataframe.
     """
     plt.figure(figsize=figsize)
-    sns.pairplot(df)
+    sns.pairplot(df, hue=hue)
     plt.title(title)
+    plt.grid()
     plt.savefig(path_to_save)
     plt.show()
 
@@ -261,58 +279,59 @@ def plot_boxplot(df, path_to_save, title, figsize=(20, 10), log_scale=True):
     if log_scale:
         plt.yscale('log')
     plt.xticks(rotation=90)
+    plt.grid()
     plt.savefig(path_to_save)
     plt.show()
 
-def plot_kde_plot(df, X_columns, path_to_save):
+def plot_kde_plot(df, X_columns, path_to_save, hue='label', figsize=(25, 10), yscaleLog=False):
     """
     Plot kde plot of a dataframe.
     """
-    fig,ax=plt.subplots(1, 3, figsize = (12, 4))
-    plt.subplot(131)
-    sns.kdeplot(x = df[X_columns[0]], color = "lightblue",hue="label",data= df)
-    ax[0].grid('on')
+    # Define figure and axes according to the number of columns
+    rows = int(np.ceil(len(X_columns)/3))
+    fig, ax = plt.subplots(rows, 3, figsize=figsize)
 
-    plt.subplot(132)
-    sns.kdeplot(x = df[X_columns[1]], color = "lightblue",hue="label",data= df)
-    ax[1].grid('on')
-
-    plt.subplot(133)
-    sns.kdeplot(x = df[X_columns[2]], color = "lightblue",hue="label",data= df)
-    ax[2].grid('on')
+    for i in range(0, len(X_columns)):
+        plt.subplot(rows, 3, i+1)
+        sns.kdeplot(x = df[X_columns[i]], color = "lightblue",hue=hue,data= df)
+        plt.grid()
+        if yscaleLog:
+            plt.yscale('log')
+        # ax[i//3, i%3].grid('on')
+    if yscaleLog:
+        plt.suptitle('Lineplot of the features (logarithmic scale)')
+    else:
+        plt.suptitle('Lineplot of the features (non-logarithmic scale)')
     plt.tight_layout()
     plt.savefig(path_to_save)
     plt.show()
 
-def plot_lineplot(df, X_columns, path_to_save, figsize=(20, 10)):
+def plot_lineplot(df, X_columns, path_to_save, hue='label', figsize=(20, 10), yscaleLog=False):
     """
     Plot lineplot of a dataframe.
     """
-    plt.figure(figsize = figsize)
-    sns.lineplot(data=df,x=df.index, y=df[X_columns[0]],hue='label')
-    plt.title(X_columns[0], fontsize = 15)
-    plt.grid()
-    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
-    plt.savefig(path_to_save + f'_{X_columns[0]}.png')
+    # Define figure and axes according to the number of columns
+    rows = int(np.ceil(len(X_columns)/3))
+    fig, ax = plt.subplots(rows, 3, figsize=figsize)
+
+    for i in range(0, len(X_columns)):
+        plt.subplot(rows, 3, i+1)
+        sns.lineplot(data=df,x=df.index, y=df[X_columns[i]],hue=hue)
+        # plt.legend(bbox_to_anchor = (1, 1), loc = "best");
+        plt.xlabel('Index')
+        plt.ylabel(X_columns[i])
+        plt.grid()
+        if yscaleLog:
+            plt.yscale('log')
+    if yscaleLog:
+        plt.suptitle('Lineplot of the features (logarithmic scale)')
+    else:
+        plt.suptitle('Lineplot of the features (non-logarithmic scale)')
+    plt.tight_layout()
+    plt.savefig(path_to_save)
     plt.show()
 
-    plt.figure(figsize = figsize)
-    sns.lineplot(data=df,x=df.index, y=df[X_columns[1]],hue='label')
-    plt.title(X_columns[1], fontsize = 15)
-    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
-    plt.grid()
-    plt.savefig(path_to_save + f'_{X_columns[1]}.png')
-    plt.show()
-
-    plt.figure(figsize = figsize)
-    sns.lineplot(data=df,x=df.index, y=df[X_columns[2]],hue='label')
-    plt.title(X_columns[2], fontsize = 15)
-    plt.legend(bbox_to_anchor = (1, 1), loc = "best");
-    plt.grid()
-    plt.savefig(path_to_save + f'_{X_columns[2]}.png')
-    plt.show()
-
-def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, labeled=False, encoder=LabelEncoder()):
+def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False, encoder=LabelEncoder()):
     """
     Returns the number of false upper and false lower.
     """
@@ -356,11 +375,18 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
         cm = confusion_matrix(y_true, y_pred, labels=labels)
         # Normalize the confusion matrix
         cm = np.round(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], 2)
-        plt.figure(figsize=(30, 22))
+        # Decode labels
+        labels = encoder.inverse_transform(labels)
+        # Put true labels decoded on all axis
+        cm = pd.DataFrame(cm, index=labels, columns=labels)
+        # Plot the heatmap
+        plt.figure(figsize=figsize)
         sns.heatmap(cm, annot=True, fmt='.2f', cmap='Blues', annot_kws={"size": 16})
         plt.xlabel('Predicted Labels')
         plt.ylabel('True Labels')
         plt.title('Confusion Matrix')
+        if saving:
+            plt.savefig(pathToSave+'Confusion Matrix.png')
         plt.show()
 
     # Create false upper and false lower dataframes
@@ -382,61 +408,15 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
 
     return fu, fl
 
-def get_test_performance(model, X_test, y_test, confusionMatrix=False, encoder=LabelEncoder(), labeled=False):
+def get_test_performance(model, X_test, y_test, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), encoder=LabelEncoder(), labeled=False):
     """
     Returns the performance of a model.
     """
     y_pred = model.predict(X_test)
 
-    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix, labeled=labeled, encoder=encoder)
+    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder)
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
-
-def build_model(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
-    """
-    Build a model.
-    """
-    # Define variables for performance
-    res_y_train = []
-    res_y_pred_train = []
-
-    for train_set in tqdm(train_sets):
-        # Load data
-        df = read_csv_file(train_set, path_to_datasets=path_to_datasets)
-
-        if filter_bool:
-            df = df[df[z_column] == filter_name]
-
-        X_train = df[X_columns]
-        y_train = df[y_column]
-        # print(y_train[:5])
-        # print(X_train[:5])
-
-        # Scale and encode the train set
-        X_train = scaler.transform(X_train)
-        y_train_encoded = encoder.fit_transform(y_train)
-
-        # Fit the model
-        model.fit(X_train, y_train_encoded)
-        y_pred_train = model.predict(X_train)
-
-        # Add y to lists
-        res_y_train += list(y_train_encoded)
-        res_y_pred_train += list(y_pred_train)
-
-        # Del variables
-        del df, X_train, y_train, y_train_encoded, y_pred_train
-
-    # Get the performance and save it
-    accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
-    
-    # Get the performance of the test set
-    performance_df, encoder = test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, z_column=z_column, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix)
-
-    # Save model
-    joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
-
-    return performance_df, encoder
 
 def get_all_sets_3_sets(datasets, X_columns, y_column='label', z_column='Binary', path_to_datasets=path_to_datasets()):
     """
@@ -501,40 +481,6 @@ def optimize_hyperparameters(model, modelName, path_to_datasets, path_to_model, 
     joblib.dump(model, f"{path_to_model}tuning_model_{modelName}.joblib")
 
     return best_rf_model
-
-def test_model(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False):
-    """
-    Test a model.
-    """
-    res_X_test = []
-    res_y_test = []
-
-    for test_set in tqdm(test_sets):
-        # Load data
-        df = read_csv_file(test_set, path_to_datasets=path_to_datasets)
-
-        if filter_bool:
-            df = df[df[z_column] == filter_name]
-
-        X_test = df[X_columns]
-        y_test = df[y_column]
-
-        # Scale and encode the test set
-        X_test = scaler.transform(X_test)
-        y_test_encoded = encoder.transform(y_test)
-
-        # Add y to lists
-        res_X_test += list(X_test)
-        res_y_test += list(y_test_encoded)
-
-        # Del variables
-        del df, X_test, y_test, y_test_encoded
-
-    # Get the performance and save it
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix)
-    performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
-
-    return performance_df, encoder
 
 def get_prediction_by_model(model, test_sets, path_to_datasets, X_columns, y_column='label', z_column='Binary', filter_bool=False, filter_name='DoS', scale=True, encode=True, scaler=MinMaxScaler(), encoder=LabelEncoder()):
     """
@@ -695,7 +641,7 @@ def multi_filter_df(df, filter_cols, filter_name):
             raise ("Dictionnary not built well ({'name': <elt>, 'type': '=' or '!'})")
     return df
 
-def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, labeled=False):
+def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False):
     """
     Test a model.
     """
@@ -724,12 +670,12 @@ def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, per
         del df, X_test, y_test, y_test_encoded
 
     # Get the performance and save it
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix, labeled=labeled, encoder=encoder)
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder)
     performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
 
     return performance_df, encoder
 
-def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, labeled=False):
+def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False):
     """
     Build a model.
     """
@@ -770,7 +716,7 @@ def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_
     accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
     
     # Get the performance of the test set
-    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix, labeled=labeled)
+    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled)
 
     # Save model
     joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
@@ -863,6 +809,7 @@ def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_
     plt.ylabel('Average Importance')
     plt.xlabel('Feature Name')
     plt.xticks(rotation=90)
+    plt.grid()
     plt.title('Average Feature Importance from Models')
     plt.savefig(save_repo + 'Average Feature Importance from Models.png')
     plt.show()
