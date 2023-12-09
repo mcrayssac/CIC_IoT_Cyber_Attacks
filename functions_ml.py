@@ -842,3 +842,63 @@ def model_dict_refactor_with_load_model(simpleModelsDef, model_path):
             simpleModelsDef.pop(i)
     
     return simpleModelsDef
+
+def remove_features_with_correlation_and_feature_importance(df, df_average_importance, threshold=0.80):
+    """
+    Remove features with correlation > 0.80 and feature importance < 0.01
+    """
+    # print(df_average_importance.head(10))
+
+    # Get correlation matrix
+    corr_matrix = df.corr().abs()
+
+    # # Plot correlation matrix
+    # plt.figure(figsize=(20, 20))
+    # sns.heatmap(corr_matrix, annot=True, fmt='.2f', linewidths=1, cmap='Blues')
+    # plt.show()
+
+    new_X = []
+    # For each column in df_average_importance, add if not in new_X there is a column with it correlation > 0.80
+    for index, row in df_average_importance.iterrows():
+        if len(new_X) == 0:
+            new_X.append(row['Feature'])
+        elif df[row['Feature']].nunique() == 1:
+            continue
+        else:
+            e = True
+            for feature in new_X:
+                # if row['Feature'] == 'AVG':
+                #     print(feature, row['Feature'], corr_matrix[feature][row['Feature']])
+                if corr_matrix[feature][row['Feature']] >= threshold:
+                    e = False
+                    break
+            if e:
+                new_X.append(row['Feature'])
+    
+    # Create new feature importance dataframe with features with correlation < 0.80
+    new_df = pd.DataFrame()
+    for index, row in df_average_importance.iterrows():
+        if row['Feature'] in new_X:
+            new_df = new_df.append(row)
+
+    # Re-calculating average importance to get sum of all features = 1
+    new_df['Average Importance'] = new_df['Average Importance'] / new_df['Average Importance'].sum()
+    new_df = new_df.reset_index(drop=True)
+
+    return new_df
+
+# Plot performance table
+def plot_performance_table(performance_table, path_to_save, title, figsize=(25, 10)):
+    """
+    Plot performance table.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.axis('tight')
+    ax.axis('off')
+    table = ax.table(cellText=performance_table.values, colLabels=performance_table.columns, loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)
+    table.scale(1, 1.5)
+    plt.title(title)
+    plt.savefig(path_to_save)
+    plt.show()
