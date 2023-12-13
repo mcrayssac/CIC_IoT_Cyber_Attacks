@@ -255,7 +255,8 @@ def plot_correlation_matrix(df, path_to_save, title, figsize=(20, 10), lower=Fal
         sns.heatmap(corr, annot=True, fmt='.2f', linewidths=1, cmap='Blues')
     else:
         sns.heatmap(corr, annot=False, fmt='.2f', linewidths=1, cmap='Blues')
-    plt.savefig(path_to_save)
+    plt.tight_layout()
+    plt.savefig(path_to_save, bbox_inches='tight')
     plt.show()
 
 def plot_pairplot(df, path_to_save, hue, title, figsize=(20, 10)):
@@ -280,7 +281,8 @@ def plot_boxplot(df, path_to_save, title, figsize=(20, 10), log_scale=True):
         plt.yscale('log')
     plt.xticks(rotation=90)
     plt.grid()
-    plt.savefig(path_to_save)
+    plt.tight_layout()
+    plt.savefig(path_to_save, bbox_inches='tight')
     plt.show()
 
 def plot_kde_plot(df, X_columns, path_to_save, hue='label', figsize=(25, 10), yscaleLog=False):
@@ -386,7 +388,8 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
         plt.ylabel('True Labels')
         plt.title('Confusion Matrix')
         if saving:
-            plt.savefig(pathToSave+'Confusion Matrix.png')
+            plt.tight_layout()
+            plt.savefig(pathToSave+'Confusion Matrix.png', bbox_inches='tight')
         plt.show()
 
     # Create false upper and false lower dataframes
@@ -768,7 +771,7 @@ def get_prediction_by_model_multifiltered(model, test_sets, path_to_datasets, X_
 
     return res_X_test, res_y_test, res_y_pred
 
-def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_features=False):
+def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_features=False, figsize=(20, 5)):
     """
     Calculate and plot average feature importance from multiple tree-based models.
 
@@ -804,14 +807,15 @@ def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_
     average_importance_df = average_importance_df.sort_values(by=['Average Importance'], ascending=False)
 
     # Plot feature importance
-    plt.figure(figsize=(20, 5))
+    plt.figure(figsize=figsize)
     plt.bar(average_importance_df['Feature'], average_importance_df['Average Importance'])
     plt.ylabel('Average Importance')
     plt.xlabel('Feature Name')
     plt.xticks(rotation=90)
     plt.grid()
     plt.title('Average Feature Importance from Models')
-    plt.savefig(save_repo + 'Average Feature Importance from Models.png')
+    plt.tight_layout()
+    plt.savefig(save_repo + 'Average Feature Importance from Models.png', bbox_inches='tight')
     plt.show()
 
     return average_importance_df
@@ -900,5 +904,6 @@ def plot_performance_table(performance_table, path_to_save, title, figsize=(25, 
     table.set_fontsize(12)
     table.scale(1, 1.5)
     plt.title(title)
-    plt.savefig(path_to_save)
+    plt.tight_layout()
+    plt.savefig(path_to_save, bbox_inches='tight')
     plt.show()
