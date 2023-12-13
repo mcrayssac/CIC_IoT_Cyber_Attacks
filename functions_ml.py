@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, confusion_matrix
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier, BaggingClassifier, VotingClassifier, StackingClassifier
 import joblib
 import seaborn as sns
 from skopt import BayesSearchCV
@@ -907,3 +913,41 @@ def plot_performance_table(performance_table, path_to_save, title, figsize=(25, 
     plt.tight_layout()
     plt.savefig(path_to_save, bbox_inches='tight')
     plt.show()
+
+# Search best hyperparameters of a model with bayesian optimization
+def bayesian_optimization(model_type, model, param_space, path_to_datasets, datasets, X_columns, y_column, scaler, encoder, n_iter=10, cv=5, random_state=42):
+    """
+    Search best hyperparameters of a model with bayesian optimization.
+    """
+    # Initialisation de la recherche Bayesienne
+    bayes_search = BayesSearchCV(
+        model,
+        param_space,
+        n_iter=n_iter,  # Nombre d'itérations de la recherche Bayesienne
+        cv=cv,
+        n_jobs=-1,  # Utilisation de tous les cœurs disponibles
+        verbose=0,  # Affichage des détails de la recherche
+        random_state=random_state
+    )
+
+    # Lancer la recherche Bayesienne
+    for dataset in tqdm(datasets):
+        # Load data
+        df = read_csv_file(dataset, path_to_datasets=path_to_datasets)
+        X_train = df[X_columns]
+        y_train = df[y_column]
+
+        # Scale and encode the train set
+        X_train = scaler.transform(X_train)
+        y_train_encoded = encoder.fit_transform(y_train)
+
+        # Lancer la recherche Bayesienne
+        bayes_search.fit(X_train, y_train_encoded)
+
+        # Del variables
+        del df, X_train, y_train, y_train_encoded
+
+    if model_type == 'DT':
+        return DecisionTreeClassifier(**bayes_search.best_params_)
+    else:
+        raise Exception('Model type not defined.')
