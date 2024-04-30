@@ -217,33 +217,39 @@ def plot_pie_chart(dataframe, title, figX, figY, save_directory):
     plt.savefig(save_directory + title + '.png')
     plt.show()
 
+# Select features with cumulative importance > 0.95 and correlation < 0.80
 def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.95):
     """
     Select features by importance.
     """
+
     # Trie les indices des fonctionnalités par ordre décroissant d'importance
     sorted_feature_indices = np.argsort(X)[::-1] # argsort renvoie les indices qui trieraient le tableau et [::-1] inverse l'ordre
 
     # Calcule l'importance cumulée
     cumulative_importance = np.cumsum(X[sorted_feature_indices]) # cumsum calcule la somme cumulée et [sorted_feature_indices] réordonne les valeurs dans le même ordre que les indices
 
-    # Plot l'importance cumulée
-    plt.figure(figsize=(10, 6))
-    plt.plot(cumulative_importance)
-    plt.title('Cumulative feature importance')
-    plt.xlabel('Number of features')
-    plt.ylabel('Cumulative importance')
-    plt.grid()
-    plt.axhline(y=threshold_percentage, color='r', linestyle='-')
-    plt.text(0, threshold_percentage + 0.01, f'Threshold of {threshold_percentage * 100}%', color='red')
-    plt.savefig(save_repo+'Cumulative feature importance.png')
-    plt.show()
-
     # Sélectionne les indices des fonctionnalités à conserver
     selected_feature_indices = sorted_feature_indices[cumulative_importance <= threshold_percentage]
 
     # Sélectionne les colonnes correspondantes dans X
     X_selected = [Labels[i] for i in selected_feature_indices.tolist()]
+
+    # Plot l'importance cumulée
+    plt.figure(figsize=(10, 6))
+    #plt.plot(cumulative_importance)
+    plt.plot(Labels[sorted_feature_indices], cumulative_importance)
+    plt.title('Cumulative feature importance')
+    plt.xlabel('Name of features')
+    plt.ylabel('Cumulative importance')
+    plt.axvline(x=len(X_selected) - 0.5, color='r', linestyle='--')
+    plt.grid()
+    plt.xticks(rotation=90)
+    plt.axhline(y=threshold_percentage, color='r', linestyle='-')
+    plt.text(0, threshold_percentage + 0.01, f'Threshold of {threshold_percentage * 100}%', color='red')
+    plt.tight_layout()
+    plt.savefig(save_repo+'Cumulative feature importance.png')
+    plt.show()
 
     return X_selected
 
@@ -814,12 +820,17 @@ def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_
 
     # Plot feature importance
     plt.figure(figsize=figsize)
-    plt.bar(average_importance_df['Feature'], average_importance_df['Average Importance'])
+    bars = plt.bar(average_importance_df['Feature'][0:15], average_importance_df['Average Importance'][0:15])
     plt.ylabel('Average Importance')
     plt.xlabel('Feature Name')
     plt.xticks(rotation=90)
     plt.grid()
     plt.title('Average Feature Importance from Models')
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 2), 
+                 verticalalignment='bottom',  # position the text to start at the bar top
+                 ha='center')  # align the text horizontally centered on the bar
     plt.tight_layout()
     plt.savefig(save_repo + 'Average Feature Importance from Models.png', bbox_inches='tight')
     plt.show()
