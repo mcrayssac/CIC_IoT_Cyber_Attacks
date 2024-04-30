@@ -14,6 +14,23 @@ from catboost import CatBoostClassifier
 from itertools import combinations  # Required for generating feature combinations
 from sklearn.metrics import make_scorer
 
+def plotAccuracyF1score(resAccuracy, resF1score,average_importance_df):
+  born_min=1
+  born_max=len(resAccuracy)
+  print(born_max)
+  plt.figure(figsize=(12,8))
+  miny=np.min([np.min(resAccuracy),np.min(resF1score)])
+  maxy=np.max([np.max(resAccuracy),np.max(resF1score)])
+  plt.plot(range(0,born_max), resAccuracy, label='Accuracy',marker='s')
+  plt.plot(range(0,born_max), resF1score, label='F1 Score',marker='+')
+  plt.legend(fontsize=14)
+  # plt.xticks(range(born_max),fontsize=16)
+  plt.xticks(ticks=range(0,born_max), labels=list(average_importance_df.Feature[:born_max].values), rotation=90, ha='right',fontsize=16)
+  plt.yticks(fontsize=16)
+  plt.grid('on')
+  plt.xlabel('Number of Features',fontsize=16)
+  plt.ylabel('Cumulated Importance Score',fontsize=16)
+  plt.ylim([miny-0.01*miny,maxy+0.01*maxy ])
 
 def plot_grouped_bar(df, title="Metrics by Model"):
     # Number of models and metrics

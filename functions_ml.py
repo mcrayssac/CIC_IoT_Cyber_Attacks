@@ -228,6 +228,7 @@ def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.9
 
     # Calcule l'importance cumulée
     cumulative_importance = np.cumsum(X[sorted_feature_indices]) # cumsum calcule la somme cumulée et [sorted_feature_indices] réordonne les valeurs dans le même ordre que les indices
+    print(cumulative_importance)
 
     # Sélectionne les indices des fonctionnalités à conserver
     selected_feature_indices = sorted_feature_indices[cumulative_importance <= threshold_percentage]
@@ -864,7 +865,7 @@ def model_dict_refactor_with_load_model(simpleModelsDef, model_path):
     
     return simpleModelsDef
 
-def remove_features_with_correlation_and_feature_importance(df, df_average_importance, threshold=0.80):
+def remove_features_with_correlation_and_feature_importance(df, df_average_importance, save_repo, figsize=(20, 5), threshold=0.80):
     """
     Remove features with correlation > 0.80 and feature importance < 0.01
     """
@@ -905,6 +906,23 @@ def remove_features_with_correlation_and_feature_importance(df, df_average_impor
     # Re-calculating average importance to get sum of all features = 1
     new_df['Average Importance'] = new_df['Average Importance'] / new_df['Average Importance'].sum()
     new_df = new_df.reset_index(drop=True)
+
+    # Plot feature importance
+    plt.figure(figsize=figsize)
+    bars = plt.bar(new_df['Feature'][0:15], new_df['Average Importance'][0:15])
+    plt.ylabel('Average Importance')
+    plt.xlabel('Feature Name')
+    plt.xticks(rotation=90)
+    plt.grid()
+    plt.title('Average Feature Importance from Models')
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 2), 
+                 verticalalignment='bottom',  # position the text to start at the bar top
+                 ha='center')  # align the text horizontally centered on the bar
+    plt.tight_layout()
+    plt.savefig(save_repo + 'Average Feature Importance from Models.png', bbox_inches='tight')
+    plt.show()
 
     return new_df
 
