@@ -784,7 +784,7 @@ def get_prediction_by_model_multifiltered(model, test_sets, path_to_datasets, X_
 
     return res_X_test, res_y_test, res_y_pred
 
-def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_features=False, figsize=(20, 5)):
+def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_features=False, figsize=(20, 5), plot=False):
     """
     Calculate and plot average feature importance from multiple tree-based models.
 
@@ -820,21 +820,22 @@ def calculate_and_plot_feature_importance(models, feature_names, save_repo, all_
     average_importance_df = average_importance_df.sort_values(by=['Average Importance'], ascending=False)
 
     # Plot feature importance
-    plt.figure(figsize=figsize)
-    bars = plt.bar(average_importance_df['Feature'][0:15], average_importance_df['Average Importance'][0:15])
-    plt.ylabel('Average Importance')
-    plt.xlabel('Feature Name')
-    plt.xticks(rotation=90)
-    plt.grid()
-    plt.title('Average Feature Importance from Models')
-    for bar in bars:
-        yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 2), 
-                 verticalalignment='bottom',  # position the text to start at the bar top
-                 ha='center')  # align the text horizontally centered on the bar
-    plt.tight_layout()
-    plt.savefig(save_repo + 'Average Feature Importance from Models.png', bbox_inches='tight')
-    plt.show()
+    if plot:
+        plt.figure(figsize=figsize)
+        bars = plt.bar(average_importance_df['Feature'][0:15], average_importance_df['Average Importance'][0:15])
+        plt.ylabel('Average Importance')
+        plt.xlabel('Feature Name')
+        plt.xticks(rotation=90)
+        plt.grid()
+        plt.title('Average Feature Importance from Models')
+        for bar in bars:
+            yval = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 2), 
+                    verticalalignment='bottom',  # position the text to start at the bar top
+                    ha='center')  # align the text horizontally centered on the bar
+        plt.tight_layout()
+        plt.savefig(save_repo + 'Average Feature Importance from Models.png', bbox_inches='tight')
+        plt.show()
 
     return average_importance_df
 
