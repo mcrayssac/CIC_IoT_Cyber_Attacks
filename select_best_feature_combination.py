@@ -234,7 +234,7 @@ def select_best_feature_combination(model, X_train, X_test, y_train, y_test, fea
             feature_combination=list(feature_combination)
             X_train_subset = X_train[:, list(feature_combination)] if isinstance(X_train, np.ndarray) else X_train[feature_combination]
             X_test_subset = X_test[:, feature_combination] if isinstance(X_test, np.ndarray) else X_test[feature_combination]
-            cv_Model = cross_validate(model,  X_train_subset, y_train, cv=5, scoring=scorer,return_estimator=True)
+            cv_Model = cross_validate(model,  X_train_subset, y_train, cv=cv, scoring=scorer,return_estimator=True)
             avg_score = cv_Model["test_score"].mean()
             # Evaluate model with cross-validation
             # scores = cross_val_score(model, X_train_subset, y_train, cv=cv, scoring=scorer)

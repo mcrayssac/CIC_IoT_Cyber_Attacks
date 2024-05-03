@@ -42,14 +42,14 @@ def path_to_datasets():
     """
     return DATASET_DIRECTORY
 
-def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns, file_path=path_to_datasets()):
+def get_or_define_and_save_scaler(path_to_scaler, train_sets, X_columns, file_path=path_to_datasets(), scaler=MinMaxScaler()):
     """
     Returns importing or defining scaler
     """
     try:
         scaler = joblib.load(path_to_scaler + 'scaler.joblib')
     except:
-        scaler = MinMaxScaler()
+        scaler = scaler
 
         for train_set in tqdm(train_sets):
             scaler.fit(read_csv_file(train_set, file_path)[X_columns])
@@ -218,7 +218,7 @@ def plot_pie_chart(dataframe, title, figX, figY, save_directory):
     plt.show()
 
 # Select features with cumulative importance > 0.95 and correlation < 0.80
-def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.95):
+def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.95, figsize=(10, 8)):
     """
     Select features by importance.
     """
@@ -237,7 +237,7 @@ def select_features_by_importance(Labels, X, save_repo, threshold_percentage=0.9
     X_selected = [Labels[i] for i in selected_feature_indices.tolist()]
 
     # Plot l'importance cumulée
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=figsize)
     #plt.plot(cumulative_importance)
     plt.plot(Labels[sorted_feature_indices], cumulative_importance)
     plt.title('Cumulative feature importance')
