@@ -346,7 +346,7 @@ def plot_lineplot(df, X_columns, path_to_save, hue='label', figsize=(20, 10), ys
     plt.savefig(path_to_save)
     plt.show()
 
-def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False, encoder=LabelEncoder()):
+def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False, encoder=LabelEncoder(), modelLabel='Model'):
     """
     Returns the number of false upper and false lower.
     """
@@ -399,10 +399,10 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
         sns.heatmap(cm, annot=True, fmt='.2f', cmap='Blues', annot_kws={"size": 16})
         plt.xlabel('Predicted Labels')
         plt.ylabel('True Labels')
-        plt.title('Confusion Matrix')
+        plt.title('Confusion Matrix of ' + modelLabel)
         if saving:
             plt.tight_layout()
-            plt.savefig(pathToSave+'Confusion Matrix.png', bbox_inches='tight')
+            plt.savefig(pathToSave+' Confusion Matrix.png', bbox_inches='tight')
         plt.show()
 
     # Create false upper and false lower dataframes
@@ -424,13 +424,13 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
 
     return fu, fl
 
-def get_test_performance(model, X_test, y_test, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), encoder=LabelEncoder(), labeled=False):
+def get_test_performance(model, X_test, y_test, confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), encoder=LabelEncoder(), labeled=False, modelLabel='Model'):
     """
     Returns the performance of a model.
     """
     y_pred = model.predict(X_test)
 
-    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder)
+    fu, fl = calculate_false_upper_and_false_lower(y_test, y_pred, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder, modelLabel=modelLabel)
 
     return accuracy_score(y_test, y_pred), recall_score(y_test, y_pred, average='macro'), precision_score(y_test, y_pred, average='macro'), f1_score(y_test, y_pred, average='macro'), fu, fl
 
@@ -657,7 +657,7 @@ def multi_filter_df(df, filter_cols, filter_name):
             raise ("Dictionnary not built well ({'name': <elt>, 'type': '=' or '!'})")
     return df
 
-def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False):
+def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False, modelLabel='Model'):
     """
     Test a model.
     """
@@ -686,12 +686,12 @@ def test_model_multifiltered(model, model_name, test_sets, path_to_datasets, per
         del df, X_test, y_test, y_test_encoded
 
     # Get the performance and save it
-    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder)
+    accuracy_testing, recall_testing, precision_testing, f1_testing, fu, fl = get_test_performance(model, res_X_test, res_y_test, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, encoder=encoder, modelLabel=modelLabel)
     performance_df.loc[model_name] = [model_name, accuracy_train, recall_train, precision_train, f1_train, accuracy_testing, recall_testing, precision_testing, f1_testing, fu/len(res_y_test), fl/len(res_y_test), fu, fl, len(res_y_test)]
 
     return performance_df, encoder
 
-def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False):
+def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_datasets, performance_df, path_to_model, X_columns, y_column='label', filter_cols=[], filter_bool=False, filter_name=[], encoder=LabelEncoder(), scaler=MinMaxScaler(), confusionMatrix=False, saving=False, pathToSave=".\\", figsize=(30, 20), labeled=False, modelLabel='Model'):
     """
     Build a model.
     """
@@ -732,7 +732,7 @@ def build_model_multifiltered(model, model_name, train_sets, test_sets, path_to_
     accuracy_train, recall_train, precision_train, f1_train = accuracy_score(res_y_train, res_y_pred_train), recall_score(res_y_train, res_y_pred_train, average='macro'), precision_score(res_y_train, res_y_pred_train, average='macro'), f1_score(res_y_train, res_y_pred_train, average='macro')
     
     # Get the performance of the test set
-    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled)
+    performance_df, encoder = test_model_multifiltered(model, model_name, test_sets, path_to_datasets, performance_df, accuracy_train, recall_train, precision_train, f1_train, X_columns, y_column=y_column, filter_cols=filter_cols, filter_bool=filter_bool, filter_name=filter_name, encoder=encoder, scaler=scaler, confusionMatrix=confusionMatrix, saving=saving, pathToSave=pathToSave, figsize=figsize, labeled=labeled, modelLabel=modelLabel)
 
     # Save model
     joblib.dump(model, f"{path_to_model}model_{model_name}.joblib")
