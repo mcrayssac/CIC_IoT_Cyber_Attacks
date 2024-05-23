@@ -396,13 +396,15 @@ def calculate_false_upper_and_false_lower(y_true, y_pred, confusionMatrix=False,
         cm = pd.DataFrame(cm, index=labels, columns=labels)
         # Plot the heatmap
         plt.figure(figsize=figsize)
-        sns.heatmap(cm, annot=True, fmt='.2f', cmap='Blues', annot_kws={"size": 16})
+        sns.heatmap(cm, annot=True, fmt='.5f', cmap='Blues', annot_kws={"size": 16})
         plt.xlabel('Predicted Labels')
         plt.ylabel('True Labels')
         plt.title('Confusion Matrix of ' + modelLabel)
         if saving:
             plt.tight_layout()
             plt.savefig(pathToSave+' Confusion Matrix.png', bbox_inches='tight')
+            # Save the confusion matrix as a csv file
+            cm.to_csv(pathToSave+' Confusion Matrix.csv')
         plt.show()
 
     # Create false upper and false lower dataframes
